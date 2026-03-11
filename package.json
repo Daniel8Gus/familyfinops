@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "bot": "npm run bot --workspace=packages/cli",
-    "build": "npm run build --workspace=packages/cli"
+    "build": "npm run build --workspace=packages/cli",
+    "dashboard": "npm run dev --workspace=packages/dashboard"
   }
 }

@@ -3,7 +3,7 @@ import type { Command } from "commander";
 import { RiseUpClient } from "../client/RiseUpClient.js";
 import { SessionManager } from "../auth/SessionManager.js";
 import { getSessionPath } from "../utils/config.js";
-import { parseMonth } from "../utils/dates.js";
+import { parseMonth, offsetMonth } from "../utils/dates.js";
 import { formatNIS } from "../formatters/currency.js";
 import { createTable, printTable } from "../formatters/table.js";
 import { printJson } from "../formatters/json.js";
@@ -203,6 +203,35 @@ export async function fetchDanielTransactions(month?: string): Promise<Transacti
   if (!danielClient) return [];
   const result = await fetchBudgetTransactions(danielClient, date);
   return result?.transactions ?? [];
+}
+
+export interface MonthTrend {
+  month: string;
+  income: number;
+  expenses: number;
+  net: number;
+}
+
+/**
+ * Fetch monthly income/expense trends for Daniel's account.
+ * Returns [] if no session found.
+ */
+export async function fetchDanielTrends(months = 6): Promise<MonthTrend[]> {
+  const danielClient = await buildClient("daniel");
+  if (!danielClient) return [];
+  // Anchor on the current month and let the API return months going backward.
+  const startDate = offsetMonth(0);
+  const budgets = await danielClient.budget.get(startDate, months);
+  return budgets.map((budget) => {
+    const txs = budget.envelopes.flatMap((e) => e.actuals);
+    const income = txs
+      .filter((t) => t.isIncome)
+      .reduce((s, t) => s + (t.incomeAmount ?? 0), 0);
+    const expenses = txs
+      .filter((t) => !t.isIncome)
+      .reduce((s, t) => s + Math.abs(t.billingAmount ?? 0), 0);
+    return { month: budget.budgetDate, income, expenses, net: income - expenses };
+  });
 }
 
 // ── CLI action functions ───────────────────────

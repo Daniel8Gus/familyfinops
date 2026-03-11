@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 packages/cli/dist/
+packages/dashboard/dist/
 
 # Environment files
 .env
