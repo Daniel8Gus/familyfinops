@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+packages/cli/dist/
+
+# Environment files
+.env
+.env.local
+packages/cli/telegram/.env
+
+# Session files (contain auth tokens — never commit)
+*.config/riseup-cli/
+
+# OS files
+.DS_Store
+
+# Browser profile (Playwright login sessions)
+packages/cli/browser-profile/
+
+# VitePress build output
+packages/cli/docs/.vitepress/dist/
+packages/cli/docs/.vitepress/cache/
+
+# Captured API data (large dev files)
+packages/cli/captured-api.json
+packages/cli/api-map.json
+
+# Dev/research scripts
+packages/cli/capture-api.js
+packages/cli/fetch-feb.js
+packages/cli/analyze-capture.py

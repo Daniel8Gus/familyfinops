@@ -1,0 +1,12 @@
+{
+  "name": "familyfinops",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "bot": "npm run bot --workspace=packages/cli",
+    "build": "npm run build --workspace=packages/cli"
+  }
+}
