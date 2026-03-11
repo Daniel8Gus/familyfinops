@@ -1,98 +1,153 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type Balance, type MonthTrend, type PayboxHistoryEntry, type PayboxStatus, type SpendingGroup, type Transaction } from "../api/client.ts";
+import {
+  api,
+  type Balance,
+  type MonthTrend,
+  type PayboxHistoryEntry,
+  type PayboxStatus,
+  type SpendingGroup,
+  type Transaction,
+  type HouseholdBalance,
+  type InvestmentAccount,
+} from "../api/client.ts";
 
-export interface FinanceData {
-  balance: { accounts: Balance[]; total: number } | null;
+export interface HouseholdData {
+  balance: HouseholdBalance | null;
+  spending: SpendingGroup[] | null;
+  transactions: Transaction[] | null;
+}
+
+export interface PersonData {
+  accounts: Balance[];
+  total: number;
   spending: SpendingGroup[] | null;
   transactions: Transaction[] | null;
   trends: MonthTrend[] | null;
-  payboxStatus: PayboxStatus | null;
-  payboxTarget: number;
-  payboxHistory: PayboxHistoryEntry[] | null;
 }
 
 export interface FinanceState {
-  data: FinanceData;
+  household: HouseholdData & { error?: string };
+  daniel: PersonData & { error?: string };
+  shelly: PersonData & { error?: string };
+  paybox: {
+    status: PayboxStatus | null;
+    monthly_target: number;
+    history: PayboxHistoryEntry[] | null;
+    error?: string;
+  };
+  investments: { accounts: InvestmentAccount[]; error?: string };
   loading: boolean;
-  errors: Partial<Record<keyof FinanceData, string>>;
   refresh: () => void;
   lastUpdated: Date | null;
 }
 
-const EMPTY: FinanceData = {
+const emptyHousehold: HouseholdData = {
   balance: null,
   spending: null,
   transactions: null,
+};
+
+const emptyPerson: PersonData = {
+  accounts: [],
+  total: 0,
+  spending: null,
+  transactions: null,
   trends: null,
-  payboxStatus: null,
-  payboxTarget: 1500,
-  payboxHistory: null,
 };
 
 export function useFinanceData(): FinanceState {
-  const [data, setData] = useState<FinanceData>(EMPTY);
+  const [household, setHousehold] = useState<HouseholdData & { error?: string }>(emptyHousehold);
+  const [daniel, setDaniel] = useState<PersonData & { error?: string }>(emptyPerson);
+  const [shelly, setShelly] = useState<PersonData & { error?: string }>(emptyPerson);
+  const [paybox, setPaybox] = useState<{
+    status: PayboxStatus | null;
+    monthly_target: number;
+    history: PayboxHistoryEntry[] | null;
+    error?: string;
+  }>({ status: null, monthly_target: 1500, history: null });
+  const [investments, setInvestments] = useState<{ accounts: InvestmentAccount[]; error?: string }>({ accounts: [] });
   const [loading, setLoading] = useState(true);
-  const [errors, setErrors] = useState<Partial<Record<keyof FinanceData, string>>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const newErrors: Partial<Record<keyof FinanceData, string>> = {};
 
-    const [balanceRes, spendingRes, txRes, trendsRes, payboxRes, historyRes] =
-      await Promise.allSettled([
-        api.daniel.balance(),
-        api.daniel.spending(),
-        api.daniel.transactions(),
-        api.daniel.trends(6),
-        api.paybox.status(),
-        api.paybox.history(),
-      ]);
+    const [
+      hBalanceRes,
+      hSpendingRes,
+      hTxRes,
+      dBalanceRes,
+      dSpendingRes,
+      dTxRes,
+      dTrendsRes,
+      sBalanceRes,
+      sSpendingRes,
+      sTxRes,
+      sTrendsRes,
+      payboxRes,
+      historyRes,
+      invRes,
+    ] = await Promise.allSettled([
+      api.household.balance(),
+      api.household.spending(),
+      api.household.transactions(),
+      api.daniel.balance(),
+      api.daniel.spending(),
+      api.daniel.transactions(),
+      api.daniel.trends(6),
+      api.shelly.balance(),
+      api.shelly.spending(),
+      api.shelly.transactions(),
+      api.shelly.trends(6),
+      api.paybox.status(),
+      api.paybox.history(),
+      api.investments(),
+    ]);
 
-    const newData: FinanceData = { ...EMPTY };
+    setHousehold({
+      balance:
+        hBalanceRes.status === "fulfilled"
+          ? {
+              daniel: hBalanceRes.value.data.daniel ?? [],
+              shelly: hBalanceRes.value.data.shelly ?? [],
+              combined_total: hBalanceRes.value.data.combined_total ?? 0,
+            }
+          : null,
+      spending: hSpendingRes.status === "fulfilled" ? hSpendingRes.value.data.data : null,
+      transactions: hTxRes.status === "fulfilled" ? hTxRes.value.data.data : null,
+      error: hBalanceRes.status === "rejected" ? "Could not load household data" : undefined,
+    });
 
-    if (balanceRes.status === "fulfilled") {
-      newData.balance = {
-        accounts: balanceRes.value.data.accounts,
-        total: balanceRes.value.data.total,
-      };
-    } else {
-      newErrors.balance = "Could not load balance";
-    }
+    setDaniel({
+      accounts: dBalanceRes.status === "fulfilled" ? dBalanceRes.value.data.accounts : [],
+      total: dBalanceRes.status === "fulfilled" ? dBalanceRes.value.data.total : 0,
+      spending: dSpendingRes.status === "fulfilled" ? dSpendingRes.value.data.data : null,
+      transactions: dTxRes.status === "fulfilled" ? dTxRes.value.data.data : null,
+      trends: dTrendsRes.status === "fulfilled" ? dTrendsRes.value.data.data : null,
+      error: dBalanceRes.status === "rejected" ? "Could not load Daniel's data" : undefined,
+    });
 
-    if (spendingRes.status === "fulfilled") {
-      newData.spending = spendingRes.value.data.data;
-    } else {
-      newErrors.spending = "Could not load spending";
-    }
+    setShelly({
+      accounts: sBalanceRes.status === "fulfilled" ? sBalanceRes.value.data.accounts : [],
+      total: sBalanceRes.status === "fulfilled" ? sBalanceRes.value.data.total : 0,
+      spending: sSpendingRes.status === "fulfilled" ? sSpendingRes.value.data.data : null,
+      transactions: sTxRes.status === "fulfilled" ? sTxRes.value.data.data : null,
+      trends: sTrendsRes.status === "fulfilled" ? sTrendsRes.value.data.data : null,
+      error: sBalanceRes.status === "rejected" ? "Could not load Shelly's data" : undefined,
+    });
 
-    if (txRes.status === "fulfilled") {
-      newData.transactions = txRes.value.data.data;
-    } else {
-      newErrors.transactions = "Could not load transactions";
-    }
+    setPaybox({
+      status: payboxRes.status === "fulfilled" ? payboxRes.value.data.status : null,
+      monthly_target: payboxRes.status === "fulfilled" ? payboxRes.value.data.monthly_target : 1500,
+      history: historyRes.status === "fulfilled" ? historyRes.value.data.history : null,
+      error: payboxRes.status === "rejected" ? "Could not load PayBox" : undefined,
+    });
 
-    if (trendsRes.status === "fulfilled") {
-      newData.trends = trendsRes.value.data.data;
-    } else {
-      newErrors.trends = "Could not load trends";
-    }
+    setInvestments({
+      accounts: invRes.status === "fulfilled" ? invRes.value.data.data : [],
+      error: invRes.status === "rejected" ? "Could not load investments" : undefined,
+    });
 
-    if (payboxRes.status === "fulfilled") {
-      newData.payboxStatus = payboxRes.value.data.status;
-      newData.payboxTarget = payboxRes.value.data.monthly_target;
-    } else {
-      newErrors.payboxStatus = "Could not load PayBox";
-    }
-
-    if (historyRes.status === "fulfilled") {
-      newData.payboxHistory = historyRes.value.data.history;
-    } else {
-      newErrors.payboxHistory = "Could not load PayBox history";
-    }
-
-    setData(newData);
-    setErrors(newErrors);
     setLoading(false);
     setLastUpdated(new Date());
   }, []);
@@ -101,5 +156,14 @@ export function useFinanceData(): FinanceState {
     void fetchAll();
   }, [fetchAll]);
 
-  return { data, loading, errors, refresh: fetchAll, lastUpdated };
+  return {
+    household,
+    daniel,
+    shelly,
+    paybox,
+    investments,
+    loading,
+    refresh: fetchAll,
+    lastUpdated,
+  };
 }

@@ -5,7 +5,7 @@ interface MetricCardProps {
   value: string;
   sub?: string;
   trend?: { value: number; label: string };
-  accent?: "green" | "red" | "blue" | "neutral";
+  accent?: "green" | "red" | "blue" | "neutral" | "daniel" | "shelly" | "household" | "investments";
   loading?: boolean;
 }
 
@@ -26,12 +26,20 @@ export function MetricCard({
     accent === "green" ? "var(--green)" :
     accent === "red" ? "var(--red)" :
     accent === "blue" ? "var(--blue)" :
+    accent === "daniel" ? "var(--daniel)" :
+    accent === "shelly" ? "var(--shelly)" :
+    accent === "household" ? "var(--household)" :
+    accent === "investments" ? "var(--investments)" :
     "var(--text-primary)";
 
   const accentBg =
     accent === "green" ? "var(--green-dim)" :
     accent === "red" ? "var(--red-dim)" :
     accent === "blue" ? "var(--blue-dim)" :
+    accent === "daniel" ? "var(--daniel-dim)" :
+    accent === "shelly" ? "var(--shelly-dim)" :
+    accent === "household" ? "var(--household-dim)" :
+    accent === "investments" ? "var(--investments-dim)" :
     "transparent";
 
   if (loading) {

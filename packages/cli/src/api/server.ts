@@ -10,8 +10,13 @@ import {
 import {
   fetchHouseholdBalanceData,
   fetchHouseholdSpendingData,
+  fetchHouseholdTransactions,
   fetchDanielTransactions,
   fetchDanielTrends,
+  fetchShellySpendingData,
+  fetchShellyTransactions,
+  fetchShellyTrends,
+  fetchInvestments,
 } from "../commands/household.js";
 
 const NO_SESSION_MSG = "No sessions found for any household profile.";
@@ -156,6 +161,130 @@ export function createApiServer() {
       const data = await fetchDanielTrends(months);
       res.json({ ok: true, data });
     } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  // ── Shelly's RiseUp data ─────────────────────
+
+  app.get("/api/shelly/balance", async (_req, res) => {
+    try {
+      const data = await fetchHouseholdBalanceData();
+      const total = data.shelly.reduce((s, b) => s + b.balance, 0);
+      res.json({ ok: true, accounts: data.shelly, total });
+    } catch (err) {
+      if (isNoSessionError(err)) {
+        res.json({ ok: true, accounts: [], total: 0 });
+        return;
+      }
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  app.get("/api/shelly/spending", async (req, res) => {
+    try {
+      const month = req.query["month"] as string | undefined;
+      const data = await fetchShellySpendingData(month);
+      res.json({ ok: true, data });
+    } catch (err) {
+      if (isNoSessionError(err)) {
+        res.json({ ok: true, data: [] });
+        return;
+      }
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  app.get("/api/shelly/transactions", async (req, res) => {
+    try {
+      const month = req.query["month"] as string | undefined;
+      const txs = await fetchShellyTransactions(month);
+      const simplified = txs.map((tx) => ({
+        date: tx.transactionDate,
+        amount: tx.isIncome
+          ? (tx.incomeAmount ?? 0)
+          : Math.abs(tx.billingAmount ?? 0),
+        businessName: tx.businessName,
+        category: tx.expense,
+        source: tx.source,
+        isIncome: tx.isIncome,
+      }));
+      res.json({ ok: true, data: simplified });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  app.get("/api/shelly/trends", async (req, res) => {
+    try {
+      const months = parseInt((req.query["months"] as string) ?? "6", 10);
+      const data = await fetchShellyTrends(months);
+      res.json({ ok: true, data });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  // ── Household (combined both profiles) ───────
+
+  app.get("/api/household/balance", async (_req, res) => {
+    try {
+      const data = await fetchHouseholdBalanceData();
+      res.json({ ok: true, ...data });
+    } catch (err) {
+      if (isNoSessionError(err)) {
+        res.json({ ok: true, daniel: [], shelly: [], combined_total: 0 });
+        return;
+      }
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  app.get("/api/household/spending", async (req, res) => {
+    try {
+      const month = req.query["month"] as string | undefined;
+      const data = await fetchHouseholdSpendingData(month);
+      res.json({ ok: true, data });
+    } catch (err) {
+      if (isNoSessionError(err)) {
+        res.json({ ok: true, data: [] });
+        return;
+      }
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  app.get("/api/household/transactions", async (req, res) => {
+    try {
+      const month = req.query["month"] as string | undefined;
+      const txs = await fetchHouseholdTransactions(month);
+      const simplified = txs.map((tx) => ({
+        date: tx.transactionDate,
+        amount: tx.isIncome
+          ? (tx.incomeAmount ?? 0)
+          : Math.abs(tx.billingAmount ?? 0),
+        businessName: tx.businessName,
+        category: tx.expense,
+        source: tx.source,
+        isIncome: tx.isIncome,
+      }));
+      res.json({ ok: true, data: simplified });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  // ── Investments (both profiles) ──────────────
+
+  app.get("/api/investments", async (_req, res) => {
+    try {
+      const accounts = await fetchInvestments();
+      res.json({ ok: true, data: accounts });
+    } catch (err) {
+      if (isNoSessionError(err)) {
+        res.json({ ok: true, data: [] });
+        return;
+      }
       res.status(500).json({ ok: false, error: String(err) });
     }
   });

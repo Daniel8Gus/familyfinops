@@ -54,7 +54,7 @@ function HistoryRow({ entry }: { entry: PayboxHistoryEntry }) {
 }
 
 export function PayBox({ state }: Props) {
-  const { data, loading, refresh } = state;
+  const { paybox, loading, refresh } = state;
   const [showContribute, setShowContribute] = useState(false);
   const [showPay, setShowPay] = useState(false);
 
@@ -88,10 +88,10 @@ export function PayBox({ state }: Props) {
           Current Balance
         </div>
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 64, fontWeight: 500, color: "var(--green)", lineHeight: 1 }}>
-          {loading ? "—" : nis(data.payboxStatus?.balance ?? 0)}
+          {loading ? "—" : nis(paybox.status?.balance ?? 0)}
         </div>
         <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
-          {loading ? "" : `${nis(data.payboxStatus?.stillNeeded ?? data.payboxTarget)} still needed to reach ${nis(data.payboxTarget)} target`}
+          {loading ? "" : `${nis(paybox.status?.stillNeeded ?? paybox.monthly_target)} still needed to reach ${nis(paybox.monthly_target)} target`}
         </div>
 
         {/* Action buttons */}
@@ -108,7 +108,7 @@ export function PayBox({ state }: Props) {
       </div>
 
       {/* Per-person progress */}
-      <PayBoxStatus status={data.payboxStatus} target={data.payboxTarget} loading={loading} />
+      <PayBoxStatus status={paybox.status} target={paybox.monthly_target} loading={loading} />
 
       {/* History */}
       <div style={{
@@ -122,12 +122,12 @@ export function PayBox({ state }: Props) {
 
         {loading ? (
           <div style={{ color: "var(--text-secondary)", padding: "20px 0", textAlign: "center", fontSize: 13 }}>Loading…</div>
-        ) : !data.payboxHistory || data.payboxHistory.length === 0 ? (
+        ) : !paybox.history || paybox.history.length === 0 ? (
           <div style={{ color: "var(--text-secondary)", padding: "40px 0", textAlign: "center", fontSize: 13 }}>
             No transactions yet. Log a contribution to get started.
           </div>
         ) : (
-          data.payboxHistory.map((entry, i) => <HistoryRow key={i} entry={entry} />)
+          paybox.history.map((entry, i) => <HistoryRow key={i} entry={entry} />)
         )}
       </div>
 

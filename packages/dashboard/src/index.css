@@ -17,6 +17,17 @@
   --blue: #6366f1;
   --blue-dim: rgba(99, 102, 241, 0.12);
   --amber: #f59e0b;
+  --amber-dim: rgba(245, 158, 11, 0.12);
+
+  /* Person / section accents */
+  --daniel: #3b82f6;
+  --daniel-dim: rgba(59, 130, 246, 0.12);
+  --shelly: #8b5cf6;
+  --shelly-dim: rgba(139, 92, 246, 0.12);
+  --household: #10b981;
+  --household-dim: rgba(16, 185, 129, 0.12);
+  --investments: #f59e0b;
+  --investments-dim: rgba(245, 158, 11, 0.12);
 
   --font-mono: "DM Mono", "Fira Code", monospace;
   --font-sans: "DM Sans", system-ui, sans-serif;
@@ -81,3 +92,7 @@ button {
 }
 .recharts-text { fill: var(--text-secondary) !important; font-family: var(--font-sans) !important; }
 .recharts-tooltip-wrapper { outline: none; }
+
+@media (max-width: 768px) {
+  main { padding: 16px !important; }
+}

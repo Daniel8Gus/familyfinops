@@ -8,9 +8,12 @@ interface LayoutProps {
 }
 
 const NAV_ITEMS = [
-  { path: "/", label: "Dashboard", icon: "◈" },
-  { path: "/paybox", label: "PayBox", icon: "⬡" },
-  { path: "/analytics", label: "Analytics", icon: "◉" },
+  { path: "/", label: "Household", icon: "🏠", end: true },
+  { path: "/daniel", label: "Daniel", icon: "👤", end: false },
+  { path: "/shelly", label: "Shelly", icon: "👤", end: false },
+  { path: "/investments", label: "Investments", icon: "📈", end: false },
+  { path: "/paybox", label: "PayBox", icon: "⬡", end: false },
+  { path: "/analytics", label: "Analytics", icon: "◉", end: false },
 ];
 
 export function Layout({ children, onRefresh, lastUpdated, loading }: LayoutProps) {
@@ -33,29 +36,27 @@ export function Layout({ children, onRefresh, lastUpdated, loading }: LayoutProp
         top: 0,
         height: "100vh",
       }}>
-        {/* Logo */}
         <div style={{ padding: "0 20px 28px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
               width: 32, height: 32, borderRadius: 8,
-              background: "linear-gradient(135deg, var(--green), var(--blue))",
+              background: "linear-gradient(135deg, var(--household), var(--daniel))",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 16,
             }}>🏠</div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>FamilyFinOps</div>
-              <div style={{ fontSize: 10, color: "var(--text-secondary)", letterSpacing: "0.05em" }}>HOUSEHOLD OS</div>
+              <div style={{ fontSize: 10, color: "var(--text-secondary)", letterSpacing: "0.05em" }}>DANIEL · SHELLY</div>
             </div>
           </div>
         </div>
 
-        {/* Nav */}
         <nav style={{ flex: 1, padding: "0 12px" }}>
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
-              end={item.path === "/"}
+              end={item.end}
               style={({ isActive }) => ({
                 display: "flex",
                 alignItems: "center",
@@ -65,8 +66,8 @@ export function Layout({ children, onRefresh, lastUpdated, loading }: LayoutProp
                 marginBottom: 2,
                 fontSize: 13,
                 fontWeight: 500,
-                color: isActive ? "var(--green)" : "var(--text-secondary)",
-                background: isActive ? "var(--green-dim)" : "transparent",
+                color: isActive ? "var(--household)" : "var(--text-secondary)",
+                background: isActive ? "var(--household-dim)" : "transparent",
                 transition: "all 0.15s",
                 textDecoration: "none",
               })}
@@ -77,7 +78,6 @@ export function Layout({ children, onRefresh, lastUpdated, loading }: LayoutProp
           ))}
         </nav>
 
-        {/* Footer */}
         <div style={{ padding: "16px 20px 0", borderTop: "1px solid var(--border)" }}>
           <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>Daniel · Shelly</div>
           <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
@@ -86,9 +86,7 @@ export function Layout({ children, onRefresh, lastUpdated, loading }: LayoutProp
         </div>
       </aside>
 
-      {/* Main */}
       <div style={{ flex: 1, overflow: "auto" }}>
-        {/* Header */}
         <header style={{
           display: "flex",
           alignItems: "center",
@@ -120,8 +118,8 @@ export function Layout({ children, onRefresh, lastUpdated, loading }: LayoutProp
               opacity: loading ? 0.5 : 1,
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--green)";
-              (e.currentTarget as HTMLButtonElement).style.color = "var(--green)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--household)";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--household)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border)";
@@ -133,7 +131,6 @@ export function Layout({ children, onRefresh, lastUpdated, loading }: LayoutProp
           </button>
         </header>
 
-        {/* Page content */}
         <main style={{ padding: "32px" }}>
           {children}
         </main>

@@ -28,7 +28,7 @@ function topMerchants(txs: Transaction[]): Array<{ name: string; total: number; 
     .slice(0, 8);
 }
 
-function IncomeVsExpenses({ data }: { data: FinanceState["data"]["trends"] }) {
+function IncomeVsExpenses({ data }: { data: FinanceState["daniel"]["trends"] }) {
   if (!data || data.length === 0) return null;
   const chartData = data.map((d) => ({
     month: d.month.slice(5), // MM
@@ -59,8 +59,9 @@ function IncomeVsExpenses({ data }: { data: FinanceState["data"]["trends"] }) {
 }
 
 export function Analytics({ state }: Props) {
-  const { data, loading } = state;
-  const merchants = topMerchants(data.transactions ?? []);
+  const { household, daniel, loading } = state;
+  const transactions = household.transactions ?? [];
+  const merchants = topMerchants(transactions);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -71,15 +72,15 @@ export function Analytics({ state }: Props) {
 
       {/* Row 1: spending + trend */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <SpendingChart data={data.spending} loading={loading} />
-        <TrendChart data={data.trends} loading={loading} />
+        <SpendingChart data={household.spending} loading={loading} />
+        <TrendChart data={daniel.trends} loading={loading} />
       </div>
 
       {/* Row 2: income vs expenses + top merchants */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "20px 24px" }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 20 }}>Income vs Expenses</div>
-          {loading ? <Skeleton height={200} /> : <IncomeVsExpenses data={data.trends} />}
+          {loading ? <Skeleton height={200} /> : <IncomeVsExpenses data={daniel.trends} />}
         </div>
 
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "20px 24px" }}>

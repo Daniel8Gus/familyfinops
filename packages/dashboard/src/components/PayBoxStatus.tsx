@@ -73,14 +73,14 @@ export function PayBoxStatus({ status, target, loading = false }: Props) {
             <span style={{ color: "var(--text-secondary)" }}>👤 Daniel</span>
             <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-primary)", fontSize: 12 }}>{nis(s.danielTotal)}</span>
           </div>
-          <ProgressBar value={s.danielTotal} max={target / 2} color="var(--blue)" />
+          <ProgressBar value={s.danielTotal} max={target / 2} color="var(--daniel)" />
         </div>
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
             <span style={{ color: "var(--text-secondary)" }}>👤 Shelly</span>
             <span style={{ fontFamily: "var(--font-mono)", color: "var(--text-primary)", fontSize: 12 }}>{nis(s.shellyTotal)}</span>
           </div>
-          <ProgressBar value={s.shellyTotal} max={target / 2} color="var(--amber)" />
+          <ProgressBar value={s.shellyTotal} max={target / 2} color="var(--shelly)" />
         </div>
       </div>
     </div>

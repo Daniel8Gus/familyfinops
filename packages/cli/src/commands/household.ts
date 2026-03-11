@@ -212,26 +212,159 @@ export interface MonthTrend {
   net: number;
 }
 
-/**
- * Fetch monthly income/expense trends for Daniel's account.
- * Returns [] if no session found.
- */
-export async function fetchDanielTrends(months = 6): Promise<MonthTrend[]> {
-  const danielClient = await buildClient("daniel");
-  if (!danielClient) return [];
-  // Anchor on the current month and let the API return months going backward.
+/** Private helper: fetch trends for any profile. */
+async function _fetchTrends(profile: Profile, months: number): Promise<MonthTrend[]> {
+  const client = await buildClient(profile);
+  if (!client) return [];
   const startDate = offsetMonth(0);
-  const budgets = await danielClient.budget.get(startDate, months);
+  const budgets = await client.budget.get(startDate, months);
   return budgets.map((budget) => {
     const txs = budget.envelopes.flatMap((e) => e.actuals);
-    const income = txs
-      .filter((t) => t.isIncome)
-      .reduce((s, t) => s + (t.incomeAmount ?? 0), 0);
-    const expenses = txs
-      .filter((t) => !t.isIncome)
-      .reduce((s, t) => s + Math.abs(t.billingAmount ?? 0), 0);
+    const income = txs.filter((t) => t.isIncome).reduce((s, t) => s + (t.incomeAmount ?? 0), 0);
+    const expenses = txs.filter((t) => !t.isIncome).reduce((s, t) => s + Math.abs(t.billingAmount ?? 0), 0);
     return { month: budget.budgetDate, income, expenses, net: income - expenses };
   });
+}
+
+/**
+ * Fetch monthly income/expense trends for Daniel's account.
+ */
+export async function fetchDanielTrends(months = 6): Promise<MonthTrend[]> {
+  return _fetchTrends("daniel", months);
+}
+
+/**
+ * Fetch monthly income/expense trends for Shelly's account.
+ */
+export async function fetchShellyTrends(months = 6): Promise<MonthTrend[]> {
+  return _fetchTrends("shelly", months);
+}
+
+/**
+ * Fetch raw transactions for Shelly's account for a given month.
+ */
+export async function fetchShellyTransactions(month?: string): Promise<Transaction[]> {
+  const date = parseMonth(month);
+  const shellyClient = await buildClient("shelly");
+  if (!shellyClient) return [];
+  const result = await fetchBudgetTransactions(shellyClient, date);
+  return result?.transactions ?? [];
+}
+
+/**
+ * Fetch combined household transactions (Daniel + Shelly) for a given month.
+ * Sorted by date descending.
+ */
+export async function fetchHouseholdTransactions(month?: string): Promise<Transaction[]> {
+  const [danielTxs, shellyTxs] = await Promise.all([
+    fetchDanielTransactions(month),
+    fetchShellyTransactions(month),
+  ]);
+  const combined = [...danielTxs, ...shellyTxs];
+  combined.sort(
+    (a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime(),
+  );
+  return combined;
+}
+
+/**
+ * Fetch spending breakdown for Shelly's account for a given month.
+ */
+export async function fetchShellySpendingData(month?: string): Promise<SpendingGroup[]> {
+  const date = parseMonth(month);
+  const shellyClient = await buildClient("shelly");
+  if (!shellyClient) return [];
+  const result = await fetchBudgetTransactions(shellyClient, date);
+  if (!result) return [];
+  const groups = new Map<string, SpendingGroup>();
+  groupByCategory(result.transactions, "shelly", groups);
+  return Array.from(groups.values()).sort((a, b) => b.total - a.total);
+}
+
+// ── Investment types + fetch ──────────────────
+
+export interface InvestmentPosition {
+  name: string;
+  units: number;
+  avgBuyPrice: number;
+  fundType: string;
+}
+
+export interface InvestmentAccount {
+  id: string;
+  name: string;
+  product: string;
+  owner: "daniel" | "shelly";
+  source: string;
+  totalValue: number;
+  lastUpdated: string;
+  positions: InvestmentPosition[];
+}
+
+/**
+ * Fetch all investment/securities accounts for both profiles.
+ */
+export async function fetchInvestments(): Promise<InvestmentAccount[]> {
+  const [danielClient, shellyClient] = await Promise.all([
+    buildClient("daniel"),
+    buildClient("shelly"),
+  ]);
+
+  const accounts: InvestmentAccount[] = [];
+
+  async function addFromProfile(
+    client: RiseUpClient | null,
+    owner: Profile,
+  ): Promise<void> {
+    if (!client) return;
+    try {
+      const summary = await client.account.financialSummary();
+      for (const sec of summary.securities) {
+        // The actual API returns more fields than the TS type captures — cast safely
+        const raw = sec as unknown as {
+          resourceId: string;
+          name: string;
+          product?: string;
+          sourceIdentifier: string;
+          balanceAmount: { amount: string };
+          balances: Array<{ referenceDateTime: string }>;
+          positions: Array<{
+            unitsNumber: number;
+            averageBuyingPrice: { amount: string };
+            financialInstrument: {
+              name: string;
+              other?: { typeProprietary?: string };
+            };
+          }>;
+        };
+
+        accounts.push({
+          id: raw.resourceId,
+          name: raw.name,
+          product: raw.product ?? "תיק אחזקות",
+          owner,
+          source: raw.sourceIdentifier,
+          totalValue: parseFloat(raw.balanceAmount.amount),
+          lastUpdated: raw.balances[0]?.referenceDateTime ?? "",
+          positions: raw.positions.map((p) => ({
+            name: p.financialInstrument.name,
+            units: p.unitsNumber,
+            avgBuyPrice: parseFloat(p.averageBuyingPrice.amount),
+            fundType: p.financialInstrument.other?.typeProprietary ?? "",
+          })),
+        });
+      }
+    } catch {
+      // Non-critical — skip if financial summary unavailable for this profile
+    }
+  }
+
+  await Promise.all([
+    addFromProfile(danielClient, "daniel"),
+    addFromProfile(shellyClient, "shelly"),
+  ]);
+
+  return accounts;
 }
 
 // ── CLI action functions ───────────────────────

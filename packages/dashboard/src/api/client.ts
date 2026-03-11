@@ -56,6 +56,30 @@ export interface PayboxHistoryEntry {
   note?: string;
 }
 
+export interface InvestmentPosition {
+  name: string;
+  units: number;
+  avgBuyPrice: number;
+  fundType: string;
+}
+
+export interface InvestmentAccount {
+  id: string;
+  name: string;
+  product: string;
+  owner: "daniel" | "shelly";
+  source: string;
+  totalValue: number;
+  lastUpdated: string;
+  positions: InvestmentPosition[];
+}
+
+export interface HouseholdBalance {
+  daniel: Balance[];
+  shelly: Balance[];
+  combined_total: number;
+}
+
 // ── API calls ─────────────────────────────────
 
 export const api = {
@@ -75,6 +99,36 @@ export const api = {
         params: { months },
       }),
   },
+  household: {
+    balance: () =>
+      http.get<HouseholdBalance & { ok: boolean }>("/household/balance"),
+    spending: (month?: string) =>
+      http.get<{ ok: boolean; data: SpendingGroup[] }>("/household/spending", {
+        params: month ? { month } : {},
+      }),
+    transactions: (month?: string) =>
+      http.get<{ ok: boolean; data: Transaction[] }>("/household/transactions", {
+        params: month ? { month } : {},
+      }),
+  },
+  shelly: {
+    balance: () =>
+      http.get<{ ok: boolean; accounts: Balance[]; total: number }>("/shelly/balance"),
+    spending: (month?: string) =>
+      http.get<{ ok: boolean; data: SpendingGroup[] }>("/shelly/spending", {
+        params: month ? { month } : {},
+      }),
+    transactions: (month?: string) =>
+      http.get<{ ok: boolean; data: Transaction[] }>("/shelly/transactions", {
+        params: month ? { month } : {},
+      }),
+    trends: (months = 6) =>
+      http.get<{ ok: boolean; data: MonthTrend[] }>("/shelly/trends", {
+        params: { months },
+      }),
+  },
+  investments: () =>
+    http.get<{ ok: boolean; data: InvestmentAccount[] }>("/investments"),
   paybox: {
     status: () =>
       http.get<{ ok: boolean; status: PayboxStatus; monthly_target: number }>(
