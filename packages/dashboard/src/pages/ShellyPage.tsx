@@ -26,9 +26,16 @@ export function ShellyPage({ state }: Props) {
   const trend = spendingTrend(shelly.trends);
 
   if (shelly.error && shelly.accounts.length === 0) {
+    const isApiUnreachable = shelly.error.includes("API not reachable");
     return (
-      <div style={{ padding: 24, color: "var(--red)", fontSize: 14 }}>
-        {shelly.error}
+      <div style={{ padding: 24, maxWidth: 480 }}>
+        <div style={{ color: "var(--red)", fontSize: 14, marginBottom: 12 }}>{shelly.error}</div>
+        {isApiUnreachable && (
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
+            In a terminal: <code style={{ background: "var(--bg-surface)", padding: "2px 6px", borderRadius: 4 }}>cd ~/Projects/familyfinops/packages/cli && npm run bot</code>
+            <br />Then click Refresh above.
+          </div>
+        )}
       </div>
     );
   }

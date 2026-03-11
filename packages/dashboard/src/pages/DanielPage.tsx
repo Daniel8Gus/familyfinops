@@ -26,9 +26,16 @@ export function DanielPage({ state }: Props) {
   const trend = spendingTrend(daniel.trends);
 
   if (daniel.error && daniel.accounts.length === 0) {
+    const isApiUnreachable = daniel.error.includes("API not reachable");
     return (
-      <div style={{ padding: 24, color: "var(--red)", fontSize: 14 }}>
-        {daniel.error}
+      <div style={{ padding: 24, maxWidth: 480 }}>
+        <div style={{ color: "var(--red)", fontSize: 14, marginBottom: 12 }}>{daniel.error}</div>
+        {isApiUnreachable && (
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 12 }}>
+            In a terminal: <code style={{ background: "var(--bg-surface)", padding: "2px 6px", borderRadius: 4 }}>cd ~/Projects/familyfinops/packages/cli && npm run bot</code>
+            <br />Then click Refresh above.
+          </div>
+        )}
       </div>
     );
   }

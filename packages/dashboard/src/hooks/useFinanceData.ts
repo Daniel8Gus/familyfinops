@@ -55,6 +55,22 @@ const emptyPerson: PersonData = {
   trends: null,
 };
 
+function getErrorMessage(reason: unknown): string {
+  if (reason && typeof reason === "object" && "response" in reason) {
+    const res = (reason as { response?: { data?: { error?: string }; status?: number } }).response;
+    if (res?.data?.error) return res.data.error;
+    if (res?.status === 404) return "API endpoint not found.";
+    if (res?.status === 401) return "Session expired. Run: riseup login --profile <name>";
+  }
+  if (reason instanceof Error) {
+    const err = reason as Error & { code?: string };
+    if (err.message === "Network Error" || err.code === "ECONNREFUSED" || err.code === "ERR_NETWORK")
+      return "API not reachable. Start it with: cd packages/cli && npm run bot";
+    return err.message;
+  }
+  return String(reason);
+}
+
 export function useFinanceData(): FinanceState {
   const [household, setHousehold] = useState<HouseholdData & { error?: string }>(emptyHousehold);
   const [daniel, setDaniel] = useState<PersonData & { error?: string }>(emptyPerson);
@@ -115,7 +131,7 @@ export function useFinanceData(): FinanceState {
           : null,
       spending: hSpendingRes.status === "fulfilled" ? hSpendingRes.value.data.data : null,
       transactions: hTxRes.status === "fulfilled" ? hTxRes.value.data.data : null,
-      error: hBalanceRes.status === "rejected" ? "Could not load household data" : undefined,
+      error: hBalanceRes.status === "rejected" ? getErrorMessage(hBalanceRes.reason) : undefined,
     });
 
     setDaniel({
@@ -124,7 +140,7 @@ export function useFinanceData(): FinanceState {
       spending: dSpendingRes.status === "fulfilled" ? dSpendingRes.value.data.data : null,
       transactions: dTxRes.status === "fulfilled" ? dTxRes.value.data.data : null,
       trends: dTrendsRes.status === "fulfilled" ? dTrendsRes.value.data.data : null,
-      error: dBalanceRes.status === "rejected" ? "Could not load Daniel's data" : undefined,
+      error: dBalanceRes.status === "rejected" ? getErrorMessage(dBalanceRes.reason) : undefined,
     });
 
     setShelly({
@@ -133,19 +149,19 @@ export function useFinanceData(): FinanceState {
       spending: sSpendingRes.status === "fulfilled" ? sSpendingRes.value.data.data : null,
       transactions: sTxRes.status === "fulfilled" ? sTxRes.value.data.data : null,
       trends: sTrendsRes.status === "fulfilled" ? sTrendsRes.value.data.data : null,
-      error: sBalanceRes.status === "rejected" ? "Could not load Shelly's data" : undefined,
+      error: sBalanceRes.status === "rejected" ? getErrorMessage(sBalanceRes.reason) : undefined,
     });
 
     setPaybox({
       status: payboxRes.status === "fulfilled" ? payboxRes.value.data.status : null,
       monthly_target: payboxRes.status === "fulfilled" ? payboxRes.value.data.monthly_target : 1500,
       history: historyRes.status === "fulfilled" ? historyRes.value.data.history : null,
-      error: payboxRes.status === "rejected" ? "Could not load PayBox" : undefined,
+      error: payboxRes.status === "rejected" ? getErrorMessage(payboxRes.reason) : undefined,
     });
 
     setInvestments({
       accounts: invRes.status === "fulfilled" ? invRes.value.data.data : [],
-      error: invRes.status === "rejected" ? "Could not load investments" : undefined,
+      error: invRes.status === "rejected" ? getErrorMessage(invRes.reason) : undefined,
     });
 
     setLoading(false);
