@@ -193,6 +193,18 @@ export async function fetchHouseholdReportData(
   };
 }
 
+/**
+ * Fetch raw transactions for Daniel's account for a given month.
+ * Returns [] if no session or no budget found.
+ */
+export async function fetchDanielTransactions(month?: string): Promise<Transaction[]> {
+  const date = parseMonth(month);
+  const danielClient = await buildClient("daniel");
+  if (!danielClient) return [];
+  const result = await fetchBudgetTransactions(danielClient, date);
+  return result?.transactions ?? [];
+}
+
 // ── CLI action functions ───────────────────────
 
 export async function householdSpendingAction(

@@ -3,6 +3,7 @@ import type {
   HouseholdBalanceData,
   HouseholdReportData,
 } from "../src/commands/household.js";
+import type { PayboxData, PayboxStatus } from "../src/data/paybox.js";
 
 // ── Helpers ───────────────────────────────────
 
@@ -14,9 +15,9 @@ function esc(text: string | number): string {
     .replace(/>/g, "&gt;");
 }
 
-/** Format a shekel amount without chalk ANSI codes. */
+/** Format a shekel amount (no ANSI codes, rounded to whole shekels). */
 function nis(amount: number): string {
-  const formatted = new Intl.NumberFormat("he-IL", {
+  return new Intl.NumberFormat("he-IL", {
     style: "currency",
     currency: "ILS",
     minimumFractionDigits: 0,
@@ -26,7 +27,6 @@ function nis(amount: number): string {
     .replace(/[\u200E\u200F\u202A-\u202E\u00A0\u2009]/g, "")
     .replace(/\u2212/g, "-")
     .replace(/\s/g, "");
-  return formatted;
 }
 
 /** Convert "2026-03" → "March 2026". */
@@ -69,25 +69,24 @@ function categoryEmoji(name: string): string {
     מתנות: "🎁",
     חסכון: "💰",
     השקעות: "📈",
+    כללי: "💳",
+    עמלות: "🏦",
+    מילואים: "🪖",
     "(uncategorized)": "📋",
   };
   return map[name] ?? "💳";
 }
 
-// ── Formatters ────────────────────────────────
+// ── Spending ──────────────────────────────────
 
-/**
- * Format household spending data as a Telegram HTML message.
- *
- * Example output:
- *   📊 <b>Household Spending — March 2026</b>
- *   🛒 Groceries: ₪1,240 (Daniel ₪680 | Shelly ₪560)
- *   ─────────────
- *   💰 <b>Total: ₪8,340</b>
- */
 export function formatSpending(
   data: SpendingGroup[],
   month?: string,
+  opts?: {
+    topMerchants?: Array<{ name: string; total: number }>;
+    biggestTx?: { amount: number; name: string; date: string } | null;
+    lastMonthTotal?: number;
+  },
 ): string {
   const header = month
     ? `📊 <b>Household Spending — ${prettyMonth(month)}</b>`
@@ -109,12 +108,37 @@ export function formatSpending(
   lines.push("─────────────────");
   lines.push(`💰 <b>Total: ${nis(total)}</b>`);
 
+  // Month-over-month comparison
+  if (opts?.lastMonthTotal !== undefined && opts.lastMonthTotal > 0) {
+    const diff = total - opts.lastMonthTotal;
+    const pct = ((diff / opts.lastMonthTotal) * 100).toFixed(0);
+    const arrow = diff >= 0 ? "📈" : "📉";
+    const sign = diff >= 0 ? "+" : "";
+    lines.push(`${arrow} vs last month: ${sign}${nis(diff)} (${sign}${pct}%)`);
+  }
+
+  // Top merchants
+  if (opts?.topMerchants && opts.topMerchants.length > 0) {
+    lines.push("");
+    lines.push("🏪 <b>Top merchants:</b>");
+    for (const m of opts.topMerchants.slice(0, 3)) {
+      lines.push(`  • ${esc(m.name)}: ${nis(m.total)}`);
+    }
+  }
+
+  // Biggest transaction
+  if (opts?.biggestTx) {
+    lines.push("");
+    lines.push(
+      `⚠️ <b>Biggest:</b> ${nis(opts.biggestTx.amount)} — ${esc(opts.biggestTx.name)} <i>(${opts.biggestTx.date})</i>`,
+    );
+  }
+
   return lines.join("\n");
 }
 
-/**
- * Format household balance data as a Telegram HTML message.
- */
+// ── Balance ───────────────────────────────────
+
 export function formatBalance(data: HouseholdBalanceData): string {
   const lines: string[] = ["🏦 <b>Household Balances</b>", ""];
 
@@ -147,9 +171,8 @@ export function formatBalance(data: HouseholdBalanceData): string {
   return lines.join("\n");
 }
 
-/**
- * Format a full household report as a Telegram HTML message.
- */
+// ── Report ────────────────────────────────────
+
 export function formatReport(data: HouseholdReportData): string {
   const lines: string[] = [
     `📋 <b>Household Report — ${prettyMonth(data.month)}</b>`,
@@ -169,7 +192,7 @@ export function formatReport(data: HouseholdReportData): string {
     lines.push(`${emoji} ${esc(g.name)}: ${nis(g.total)}${breakdown}`);
   }
   if (data.spending.breakdown.length > 10) {
-    lines.push(`  <i>…and ${data.spending.breakdown.length - 10} more categories</i>`);
+    lines.push(`  <i>…and ${data.spending.breakdown.length - 10} more</i>`);
   }
 
   lines.push("");
@@ -191,3 +214,127 @@ export function formatReport(data: HouseholdReportData): string {
 
   return lines.join("\n");
 }
+
+// ── PayBox ────────────────────────────────────
+
+export function formatPayboxStatus(status: PayboxStatus, target: number): string {
+  const pct = target > 0 ? Math.round((status.totalContributed / target) * 100) : 0;
+  const bar = "█".repeat(Math.round(pct / 10)) + "░".repeat(10 - Math.round(pct / 10));
+
+  const lines: string[] = [
+    "💰 <b>PayBox Status</b>",
+    "─────────────────",
+    `Current balance: <b>${nis(status.balance)}</b>`,
+    `Daniel contributed: ${nis(status.danielTotal)}`,
+    `Shelly contributed: ${nis(status.shellyTotal)}`,
+    "",
+    `Target this month: ${nis(target)}`,
+    `Progress: ${bar} ${pct}%`,
+    `Still needed: <b>${nis(status.stillNeeded)}</b>`,
+  ];
+
+  if (status.totalPaid > 0) {
+    lines.push(`Total paid out: ${nis(status.totalPaid)}`);
+  }
+
+  return lines.join("\n");
+}
+
+export function formatPayboxHistory(
+  entries: Array<{
+    type: "contribution" | "payment";
+    date: string;
+    amount: number;
+    who?: string;
+    category?: string;
+    note?: string;
+  }>,
+): string {
+  if (entries.length === 0) {
+    return "💰 <b>PayBox History</b>\n\nNo transactions yet.";
+  }
+
+  const lines: string[] = ["💰 <b>PayBox History</b>", "─────────────────"];
+
+  for (const e of entries) {
+    const emoji = e.type === "contribution" ? "➕" : "💸";
+    const who = e.who ? ` (${e.who})` : "";
+    const note = e.note ? ` — <i>${esc(e.note)}</i>` : "";
+    const cat = e.category ? ` [${esc(e.category)}]` : "";
+    lines.push(`${emoji} ${e.date} ${nis(e.amount)}${who}${cat}${note}`);
+  }
+
+  return lines.join("\n");
+}
+
+// ── Weekly Summary ────────────────────────────
+
+export function formatWeeklySummary(opts: {
+  weekLabel: string;
+  spendingByCategory: Array<{ name: string; total: number }>;
+  weeklyTotal: number;
+  balance: number;
+  payboxStatus: PayboxStatus;
+  payboxTarget: number;
+  notableTxs: Array<{ amount: number; name: string; date: string }>;
+}): string {
+  const lines: string[] = [
+    `📊 <b>Daniel's Weekly Summary</b>`,
+    `<i>${opts.weekLabel}</i>`,
+    "",
+    `💸 <b>Spending this week: ${nis(opts.weeklyTotal)}</b>`,
+  ];
+
+  for (const cat of opts.spendingByCategory) {
+    lines.push(`  ${categoryEmoji(cat.name)} ${esc(cat.name)}: ${nis(cat.total)}`);
+  }
+
+  lines.push("");
+  lines.push("─────────────────");
+  lines.push(`🏦 Bank balance: <b>${nis(opts.balance)}</b>`);
+
+  lines.push("");
+  lines.push("─────────────────");
+  lines.push(
+    `💰 PayBox: ${nis(opts.payboxStatus.totalContributed)} / ${nis(opts.payboxTarget)}`,
+  );
+  if (opts.payboxStatus.stillNeeded > 0) {
+    lines.push(`   Still needed: <b>${nis(opts.payboxStatus.stillNeeded)}</b>`);
+  } else {
+    lines.push(`   ✅ Target reached!`);
+  }
+
+  if (opts.notableTxs.length > 0) {
+    lines.push("");
+    lines.push("─────────────────");
+    lines.push("⚠️ <b>Notable transactions (>₪500):</b>");
+    for (const tx of opts.notableTxs) {
+      lines.push(`  • ${nis(tx.amount)} — ${esc(tx.name)} <i>(${tx.date})</i>`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+// ── PayBox contribution confirmation ──────────
+
+export function formatContributionConfirm(
+  who: string,
+  amount: number,
+  status: PayboxStatus,
+): string {
+  const name = who.charAt(0).toUpperCase() + who.slice(1);
+  return `✅ Logged ${nis(amount)} contribution from <b>${name}</b>.\nBox balance: <b>${nis(status.balance)}</b> | Still needed: ${nis(status.stillNeeded)}`;
+}
+
+export function formatPaymentConfirm(
+  amount: number,
+  category: string,
+  status: PayboxStatus,
+): string {
+  return `✅ Logged ${nis(amount)} payment for <b>${esc(category)}</b>.\nRemaining balance: <b>${nis(status.balance)}</b>`;
+}
+
+// ── PayBox not set up ─────────────────────────
+
+export { PayboxData };
