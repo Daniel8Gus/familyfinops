@@ -25,9 +25,11 @@ const isCreditCardBillPayment = (tx: TxForFilter): boolean => {
   const isCCMerchant =
     name.includes("ישראכרט") ||
     name.includes("ויזה מקס") ||
+    name.includes("מקס איט") ||
     name.includes("visa max") ||
     name.includes("max it");
-  return isCCMerchant && amount > 1000;
+  // Only exclude large monthly bill payments (typically ₪5,000+), not individual card purchases
+  return isCCMerchant && amount > 5000;
 };
 
 const isBankTransfer = (tx: TxForFilter): boolean => {

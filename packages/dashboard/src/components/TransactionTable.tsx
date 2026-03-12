@@ -60,6 +60,7 @@ export function TransactionTable({ data, loading = false, limit = 10, title = "R
             <thead>
               <tr>
                 <th style={th} onClick={() => handleSort("date")}>Date <SortIcon col="date" /></th>
+                <th style={th}>Type</th>
                 <th style={th}>Description</th>
                 <th style={th}>Category</th>
                 <th style={{ ...th, textAlign: "right" }} onClick={() => handleSort("amount")}>Amount <SortIcon col="amount" /></th>
@@ -70,13 +71,21 @@ export function TransactionTable({ data, loading = false, limit = 10, title = "R
                 <tr key={i}
                   style={{
                     transition: "background 0.1s",
-                    // Green left border for income, red for expense
                     boxShadow: tx.isIncome ? "inset 3px 0 0 var(--green)" : "inset 3px 0 0 var(--red)",
                   }}
                   onMouseEnter={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = "rgba(255,255,255,0.025)")}
                   onMouseLeave={(e) => ((e.currentTarget as HTMLTableRowElement).style.background = "transparent")}
                 >
                   <td style={{ padding: "11px 16px", fontSize: 11, borderBottom: "1px solid rgba(255,255,255,0.04)", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>{tx.date}</td>
+                  <td style={{ padding: "11px 16px", fontSize: 11, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                    <span style={{
+                      display: "inline-block", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600,
+                      background: tx.isIncome ? "var(--green-dim)" : "var(--red-dim)",
+                      color: tx.isIncome ? "var(--green)" : "var(--red)",
+                    }}>
+                      {tx.isIncome ? "הכנסה" : "הוצאה"}
+                    </span>
+                  </td>
                   <td style={{ padding: "11px 16px", fontSize: 13, borderBottom: "1px solid rgba(255,255,255,0.04)", color: "var(--text-primary)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={tx.businessName}>{tx.businessName}</td>
                   <td style={{ padding: "11px 16px", fontSize: 13, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                     <span style={{

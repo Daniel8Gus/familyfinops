@@ -136,6 +136,7 @@ export function createApiServer() {
     }
   });
 
+  // Return ALL transactions (income + expenses) for the month; isIncome flags each row
   app.get("/api/daniel/transactions", async (req, res) => {
     try {
       const month = req.query["month"] as string | undefined;
@@ -196,6 +197,7 @@ export function createApiServer() {
     }
   });
 
+  // Return ALL transactions (income + expenses) for the month; isIncome flags each row
   app.get("/api/shelly/transactions", async (req, res) => {
     try {
       const month = req.query["month"] as string | undefined;

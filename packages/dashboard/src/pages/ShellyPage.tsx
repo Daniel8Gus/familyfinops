@@ -14,14 +14,6 @@ interface Props {
   state: FinanceState;
 }
 
-function spendingTrend(trends: FinanceState["shelly"]["trends"]): number | undefined {
-  if (!trends || trends.length < 2) return undefined;
-  const last = trends[trends.length - 1];
-  const prev = trends[trends.length - 2];
-  if (prev.expenses === 0) return undefined;
-  return ((last.expenses - prev.expenses) / prev.expenses) * 100;
-}
-
 function prettyMonthLong(ym: string): string {
   const [y, m] = ym.split("-");
   const d = new Date(Number(y), Number(m) - 1, 1);
@@ -84,15 +76,12 @@ export function ShellyPage({ state }: Props) {
     };
   }, [selectedMonth]);
 
-  const thisMonthSpending =
-    (monthSpending ?? shelly.spending ?? []).reduce((s, g) => s + g.total, 0);
-  const trend = spendingTrend(shelly.trends);
-
   const lastThree = useMemo(
     () => getLastThreeMonths(shelly.trends as MonthTrend[] | null),
     [shelly.trends],
   );
   const currentMonth = new Date().toISOString().slice(0, 7);
+  const selectedMonthTrend = (shelly.trends ?? []).find((t) => t.month === selectedMonth);
 
   if (shelly.error && shelly.accounts.length === 0) {
     const isApiUnreachable = shelly.error.includes("API not reachable");
@@ -206,7 +195,7 @@ export function ShellyPage({ state }: Props) {
                   <div
                     style={{
                       fontFamily: "var(--font-mono)",
-                      color: "var(--blue)",
+                      color: m.net >= 0 ? "var(--green)" : "var(--red)",
                       fontWeight: 600,
                     }}
                   >
@@ -230,19 +219,26 @@ export function ShellyPage({ state }: Props) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gridTemplateColumns: "repeat(3, 1fr)",
           gap: 16,
         }}
       >
         <MetricCard
-          label={
-            selectedMonth
-              ? `Spending – ${prettyMonthLong(selectedMonth)}`
-              : "Spending"
-          }
-          value={loading ? "—" : nis(thisMonthSpending)}
-          trend={trend !== undefined ? { value: trend, label: "vs last month" } : undefined}
+          label={selectedMonth ? `Income – ${prettyMonthLong(selectedMonth)}` : "Income"}
+          value={loading || monthLoading ? "—" : (selectedMonthTrend ? nis(selectedMonthTrend.income) : "—")}
+          accent="green"
+          loading={loading || monthLoading}
+        />
+        <MetricCard
+          label={selectedMonth ? `Expenses – ${prettyMonthLong(selectedMonth)}` : "Expenses"}
+          value={loading || monthLoading ? "—" : (selectedMonthTrend ? nis(selectedMonthTrend.expenses) : "—")}
           accent="red"
+          loading={loading || monthLoading}
+        />
+        <MetricCard
+          label={selectedMonth ? `Net – ${prettyMonthLong(selectedMonth)}` : "Net"}
+          value={loading || monthLoading ? "—" : (selectedMonthTrend ? nis(selectedMonthTrend.net) : "—")}
+          accent={selectedMonthTrend && selectedMonthTrend.net >= 0 ? "green" : "red"}
           loading={loading || monthLoading}
         />
       </div>
