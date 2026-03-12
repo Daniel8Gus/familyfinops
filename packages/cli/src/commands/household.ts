@@ -241,14 +241,19 @@ export interface MonthTrend {
   net: number;
 }
 
-/** Private helper: fetch trends for any profile. */
+/** Private helper: fetch trends for any profile. Uses per-month fetch so numbers match spending endpoint. */
 async function _fetchTrends(profile: Profile, months: number): Promise<MonthTrend[]> {
   const client = await buildClient(profile);
   if (!client) return [];
-  const startDate = offsetMonth(0);
-  const budgets = await client.budget.get(startDate, months);
-  return budgets.map((budget) => {
-    const txs = budget.envelopes.flatMap((e) => e.actuals);
+  const results: MonthTrend[] = [];
+  for (let i = 0; i < months; i++) {
+    const month = offsetMonth(-i);
+    const result = await fetchBudgetTransactions(client, month);
+    if (!result) {
+      results.push({ month, income: 0, expenses: 0, net: 0 });
+      continue;
+    }
+    const txs = result.transactions;
     const income = txs.filter((t) => t.isIncome).reduce((s, t) => s + (t.incomeAmount ?? 0), 0);
     const expenses = txs
       .filter((t) => isRealExpense(t))
@@ -256,8 +261,9 @@ async function _fetchTrends(profile: Profile, months: number): Promise<MonthTren
         const rawAmount = t.billingAmount ?? (t as TxForFilter).amount ?? t.incomeAmount ?? 0;
         return s + Math.abs(rawAmount);
       }, 0);
-    return { month: budget.budgetDate, income, expenses, net: income - expenses };
-  });
+    results.push({ month, income, expenses, net: income - expenses });
+  }
+  return results.reverse();
 }
 
 /**
