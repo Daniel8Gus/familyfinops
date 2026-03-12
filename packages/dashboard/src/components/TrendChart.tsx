@@ -62,7 +62,7 @@ export function TrendChart({ data, loading = false, title = "Monthly Trend" }: P
   const currentMonth = new Date().toISOString().slice(0, 7);
   const chartData = (data ?? []).map((d) => ({
     ...d,
-    label: prettyMonth(d.month),
+    label: prettyMonth(d.month) + (d.month === currentMonth ? " (in progress)" : ""),
     isCurrent: d.month === currentMonth,
   }));
   const currentLabel = chartData.find((d) => d.isCurrent)?.label ?? null;
@@ -70,14 +70,17 @@ export function TrendChart({ data, loading = false, title = "Monthly Trend" }: P
   const renderDot = (color: string) => (props: unknown) => {
     const { cx, cy, payload } = props as { cx: number; cy: number; payload: { isCurrent: boolean } };
     return (
-      <circle
-        key={`${color}-${cx}`}
-        cx={cx} cy={cy}
-        r={payload.isCurrent ? 6 : 3}
-        fill={color}
-        stroke={payload.isCurrent ? "var(--bg-page)" : "none"}
-        strokeWidth={payload.isCurrent ? 2 : 0}
-      />
+      <g key={`${color}-${cx}`}>
+        <circle
+          cx={cx}
+          cy={cy}
+          r={payload.isCurrent ? 6 : 3}
+          fill={payload.isCurrent ? "transparent" : color}
+          stroke={color}
+          strokeWidth={payload.isCurrent ? 2 : 0}
+          strokeDasharray={payload.isCurrent ? "3 2" : "none"}
+        />
+      </g>
     );
   };
 
@@ -96,8 +99,12 @@ export function TrendChart({ data, loading = false, title = "Monthly Trend" }: P
             <Tooltip content={<CustomTooltip />} />
             <Legend formatter={(v) => <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>{v}</span>} />
             {currentLabel && (
-              <ReferenceLine x={currentLabel} stroke="rgba(255,255,255,0.12)" strokeDasharray="4 3"
-                label={{ value: "Now", fill: "var(--text-muted)", fontSize: 9, position: "insideTopRight" }} />
+              <ReferenceLine
+                x={currentLabel}
+                stroke="rgba(255,255,255,0.12)"
+                strokeDasharray="4 3"
+                label={{ value: "In progress", fill: "var(--text-muted)", fontSize: 9, position: "insideTopRight" }}
+              />
             )}
             <Line type="monotone" dataKey="income" name="Income" stroke="var(--green)" strokeWidth={2}
               dot={renderDot("var(--green)")} activeDot={{ r: 6, fill: "var(--green)" }} />

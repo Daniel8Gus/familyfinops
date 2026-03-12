@@ -22,7 +22,9 @@ function prettyMonthLong(ym: string): string {
 
 function getLastThreeMonths(trends: MonthTrend[] | null): MonthTrend[] {
   if (!trends) return [];
-  const sorted = [...trends].sort((a, b) => a.month.localeCompare(b.month));
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const completedMonths = trends.filter((t) => t.month < currentMonth);
+  const sorted = [...completedMonths].sort((a, b) => a.month.localeCompare(b.month));
   return sorted.slice(-3);
 }
 
@@ -118,16 +120,12 @@ export function DanielPage({ state }: Props) {
         }}
       >
         {lastThree.map((m) => {
-          const isCurrent = m.month === currentMonth;
           return (
             <div
               key={m.month}
               style={{
                 borderRadius: "var(--radius)",
-                border: isCurrent
-                  ? "1px solid var(--blue)"
-                  : "1px solid var(--border)",
-                boxShadow: isCurrent ? "0 0 0 1px rgba(59,130,246,0.35)" : "none",
+                border: "1px solid var(--border)",
                 background: "var(--bg-card)",
                 padding: "16px 18px",
               }}
@@ -142,7 +140,7 @@ export function DanielPage({ state }: Props) {
                   marginBottom: 6,
                 }}
               >
-                {isCurrent ? "This month" : "Month summary"}
+                Month summary
               </div>
               <div
                 style={{
@@ -209,6 +207,57 @@ export function DanielPage({ state }: Props) {
           );
         })}
       </div>
+
+      {/* This month so far (incomplete) */}
+      {(() => {
+        const currentMonthTrend = (daniel.trends ?? []).find((t) => t.month === currentMonth);
+        if (!currentMonthTrend) return null;
+        return (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 16,
+              padding: "12px 16px",
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+            }}
+          >
+            <span
+              style={{
+                gridColumn: "1 / -1",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                color: "var(--text-secondary)",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              THIS MONTH SO FAR
+              <span
+                style={{
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: "var(--red-dim)",
+                  color: "var(--red)",
+                  fontSize: 10,
+                }}
+              >
+                Incomplete
+              </span>
+            </span>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Income</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Expenses</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Net</div>
+            <div style={{ fontFamily: "var(--font-mono)", color: "var(--green)", fontWeight: 600 }}>{nis(currentMonthTrend.income)}</div>
+            <div style={{ fontFamily: "var(--font-mono)", color: "var(--red)", fontWeight: 600 }}>{nis(currentMonthTrend.expenses)}</div>
+            <div style={{ fontFamily: "var(--font-mono)", color: currentMonthTrend.net >= 0 ? "var(--green)" : "var(--red)", fontWeight: 600 }}>{nis(currentMonthTrend.net)}</div>
+          </div>
+        );
+      })()}
 
       <MetricCard
         label="Total balance"
@@ -281,6 +330,7 @@ export function DanielPage({ state }: Props) {
                     }}
                   >
                     {prettyMonthLong(t.month)}
+                    {t.month === currentMonth ? " (in progress)" : ""}
                   </button>
                 );
               })}

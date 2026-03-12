@@ -243,19 +243,36 @@ export interface MonthTrend {
   net: number;
 }
 
-/** Private helper: fetch trends for any profile. Uses per-month fetch so numbers match spending endpoint. */
+/** Return true if transaction belongs to the given month (YYYY-MM). Uses transactionBudgetDate or calendarMonth first (budget-assigned), then transactionDate. */
+function isTransactionInMonth(tx: Transaction, month: string): boolean {
+  if ((tx.transactionBudgetDate ?? "").startsWith(month)) return true;
+  if ((tx.calendarMonth ?? "").startsWith(month)) return true;
+  return (tx.transactionDate ?? "").startsWith(month);
+}
+
+/** Private helper: fetch trends for any profile. Fetches each month separately, dedupes transactions by id, then assigns each transaction to its actual month so Oct and Nov are not duplicated. */
 async function _fetchTrends(profile: Profile, months: number): Promise<MonthTrend[]> {
   const client = await buildClient(profile);
   if (!client) return [];
-  const results: MonthTrend[] = [];
-  for (let i = 0; i < months; i++) {
-    const month = offsetMonth(-i);
+  const monthList: string[] = [];
+  for (let i = 0; i < months; i++) monthList.push(offsetMonth(-i));
+  monthList.reverse();
+
+  const seenIds = new Set<string>();
+  const allTxs: Transaction[] = [];
+  for (const month of monthList) {
     const result = await fetchBudgetTransactions(client, month);
-    if (!result) {
-      results.push({ month, income: 0, expenses: 0, net: 0 });
-      continue;
+    if (!result) continue;
+    for (const tx of result.transactions) {
+      const id = tx.transactionId ?? `${tx.transactionDate}-${tx.businessName}-${tx.billingAmount}`;
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+      allTxs.push(tx);
     }
-    const txs = result.transactions;
+  }
+
+  return monthList.map((month) => {
+    const txs = allTxs.filter((t) => isTransactionInMonth(t, month));
     const income = txs.filter((t) => t.isIncome).reduce((s, t) => s + (t.incomeAmount ?? 0), 0);
     const expenses = txs
       .filter((t) => isRealExpense(t))
@@ -263,9 +280,8 @@ async function _fetchTrends(profile: Profile, months: number): Promise<MonthTren
         const rawAmount = t.billingAmount ?? (t as TxForFilter).amount ?? t.incomeAmount ?? 0;
         return s + Math.abs(rawAmount);
       }, 0);
-    results.push({ month, income, expenses, net: income - expenses });
-  }
-  return results.reverse();
+    return { month, income, expenses, net: income - expenses };
+  });
 }
 
 /**
