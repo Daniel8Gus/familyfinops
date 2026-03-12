@@ -16,29 +16,33 @@ import type { Balance, Transaction } from "../client/types.js";
 const PROFILES = ["daniel", "shelly"] as const;
 type Profile = (typeof PROFILES)[number];
 
-/**
- * Credit card batch payments and bank transfers to exclude from personal spending.
- * These are payment aggregations (debit from bank to credit card company),
- * NOT individual merchant expenses. Including them would double-count spending.
- */
-const CREDIT_CARD_PATTERNS: string[] = [
-  "ישראכרט",          // Isracard credit card payment
-  "מקס איט",          // Max IT Finance (Visa Max) payment
-  "ויזה מקס",         // Visa Max
-  "כרטיסי אשראי",    // Credit cards generic
-  "לאומי ויזה",       // Leumi Visa
-  "לאומי קארד",       // Leumi Card
-  "הרשאה מקס",        // Max standing order
-  "הרשאה דינרס",      // Diners standing order
-  "העברה באינטרנט",   // Internet bank transfer (rent etc.)
-  "העברה בינקאית",    // Bank wire transfer
-  "החזר שיק",         // Returned check
-];
+type TxForFilter = Transaction & { description?: string; amount?: number };
 
-/** Returns true if this transaction is a credit card payment or bank transfer to exclude. */
-function isCreditCardOrTransfer(businessName: string): boolean {
-  return CREDIT_CARD_PATTERNS.some((p) => businessName.includes(p));
-}
+const isCreditCardBillPayment = (tx: TxForFilter): boolean => {
+  const name = (tx.businessName || tx.description || "").toLowerCase();
+  const rawAmount = tx.billingAmount ?? tx.amount ?? tx.incomeAmount ?? 0;
+  const amount = Math.abs(rawAmount);
+  const isCCMerchant =
+    name.includes("ישראכרט") ||
+    name.includes("ויזה מקס") ||
+    name.includes("visa max") ||
+    name.includes("max it");
+  return isCCMerchant && amount > 1000;
+};
+
+const isBankTransfer = (tx: TxForFilter): boolean => {
+  const name = (tx.businessName || tx.description || "").toLowerCase();
+  const rawAmount = tx.billingAmount ?? tx.amount ?? tx.incomeAmount ?? 0;
+  const amount = Math.abs(rawAmount);
+  return name.includes("העברה") && amount > 3000;
+};
+
+const isRealExpense = (tx: TxForFilter): boolean => {
+  if (tx.isIncome) return false;
+  if (isCreditCardBillPayment(tx)) return false;
+  if (isBankTransfer(tx)) return false;
+  return true;
+};
 
 // ── Exported data types ───────────────────────
 
@@ -91,8 +95,7 @@ function groupByCategory(
   groups: Map<string, SpendingGroup>,
 ): void {
   for (const tx of transactions) {
-    if (tx.isIncome) continue;
-    if (isCreditCardOrTransfer(tx.businessName)) continue; // skip bulk CC payments
+    if (!isRealExpense(tx)) continue;
     const key = tx.expense || "(uncategorized)";
     const amount = Math.abs(tx.billingAmount ?? 0);
     const existing = groups.get(key);
@@ -248,8 +251,11 @@ async function _fetchTrends(profile: Profile, months: number): Promise<MonthTren
     const txs = budget.envelopes.flatMap((e) => e.actuals);
     const income = txs.filter((t) => t.isIncome).reduce((s, t) => s + (t.incomeAmount ?? 0), 0);
     const expenses = txs
-      .filter((t) => !t.isIncome && !isCreditCardOrTransfer(t.businessName))
-      .reduce((s, t) => s + Math.abs(t.billingAmount ?? 0), 0);
+      .filter((t) => isRealExpense(t))
+      .reduce((s, t) => {
+        const rawAmount = t.billingAmount ?? (t as TxForFilter).amount ?? t.incomeAmount ?? 0;
+        return s + Math.abs(rawAmount);
+      }, 0);
     return { month: budget.budgetDate, income, expenses, net: income - expenses };
   });
 }
