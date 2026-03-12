@@ -1,3 +1,13 @@
+/*
+ * PayBox API: No public API available as of March 2026.
+ * curl https://api.paybox.co.il/ → connection refused (000)
+ * curl https://www.paybox.co.il/ → no API/developer documentation found
+ *
+ * Data is entered manually via:
+ *   - Telegram bot:  /contribute <amount> [note]  and  /paid <amount> <category> [note]
+ *   - REST API:      POST /api/paybox/contribute  and  POST /api/paybox/pay
+ *   - Direct edit:   data/paybox.json
+ */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

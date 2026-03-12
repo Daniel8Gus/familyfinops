@@ -9,8 +9,9 @@ import {
 } from "../data/paybox.js";
 import {
   fetchHouseholdBalanceData,
-  fetchHouseholdSpendingData,
+  fetchHouseholdMutualExpenses,
   fetchHouseholdTransactions,
+  fetchDanielSpendingData,
   fetchDanielTransactions,
   fetchDanielTrends,
   fetchShellySpendingData,
@@ -124,7 +125,7 @@ export function createApiServer() {
   app.get("/api/daniel/spending", async (req, res) => {
     try {
       const month = req.query["month"] as string | undefined;
-      const data = await fetchHouseholdSpendingData(month);
+      const data = await fetchDanielSpendingData(month);
       res.json({ ok: true, data });
     } catch (err) {
       if (isNoSessionError(err)) {
@@ -240,16 +241,13 @@ export function createApiServer() {
     }
   });
 
+  // Household spending = mutual expenses only (rent + PayBox), NOT personal bank txns
   app.get("/api/household/spending", async (req, res) => {
     try {
       const month = req.query["month"] as string | undefined;
-      const data = await fetchHouseholdSpendingData(month);
+      const data = await fetchHouseholdMutualExpenses(month);
       res.json({ ok: true, data });
     } catch (err) {
-      if (isNoSessionError(err)) {
-        res.json({ ok: true, data: [] });
-        return;
-      }
       res.status(500).json({ ok: false, error: String(err) });
     }
   });

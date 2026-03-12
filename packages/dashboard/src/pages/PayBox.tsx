@@ -53,6 +53,35 @@ function HistoryRow({ entry }: { entry: PayboxHistoryEntry }) {
   );
 }
 
+function ContributionCalculator({ state }: { state: FinanceState }) {
+  const target = state.paybox.monthly_target;
+  const danielTrends = state.daniel.trends ?? [];
+  const shellyTrends = state.shelly.trends ?? [];
+  const danielIncome = (danielTrends.length >= 2 ? danielTrends[danielTrends.length - 2] : danielTrends[0])?.income ?? 0;
+  const shellyIncome = (shellyTrends.length >= 2 ? shellyTrends[shellyTrends.length - 2] : shellyTrends[0])?.income ?? 0;
+  const totalIncome = danielIncome + shellyIncome;
+  if (totalIncome === 0) return null;
+  const danielShare = Math.round((danielIncome / totalIncome) * target);
+  const shellyShare = target - danielShare;
+  const danielPct = Math.round((danielIncome / totalIncome) * 100);
+  return (
+    <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "20px 24px" }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Suggested Contribution</div>
+      <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 16 }}>
+        Proportional split — {danielPct}% Daniel · {100 - danielPct}% Shelly (based on last month's income)
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        {([["Daniel", danielShare, "var(--daniel)"], ["Shelly", shellyShare, "var(--shelly)"], ["Target", target, "var(--text-secondary)"]] as const).map(([label, value, color]) => (
+          <div key={label} style={{ background: "rgba(255,255,255,0.04)", borderRadius: "var(--radius-sm)", padding: "12px 16px", textAlign: "center" }}>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 6 }}>{label}</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 700, color: color as string }}>₪{Math.round(value as number).toLocaleString("en-US")}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function PayBox({ state }: Props) {
   const { paybox, loading, refresh } = state;
   const [showContribute, setShowContribute] = useState(false);
@@ -106,6 +135,9 @@ export function PayBox({ state }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Contribution calculator */}
+      {!loading && <ContributionCalculator state={state} />}
 
       {/* Per-person progress */}
       <PayBoxStatus status={paybox.status} target={paybox.monthly_target} loading={loading} />

@@ -8,12 +8,37 @@ import { formatNIS } from "../formatters/currency.js";
 import { createTable, printTable } from "../formatters/table.js";
 import { printJson } from "../formatters/json.js";
 import { fetchBudgetTransactions } from "./budget-helpers.js";
+import { loadPaybox } from "../data/paybox.js";
 import type { Balance, Transaction } from "../client/types.js";
 
 // ── Constants ─────────────────────────────────
 
 const PROFILES = ["daniel", "shelly"] as const;
 type Profile = (typeof PROFILES)[number];
+
+/**
+ * Credit card batch payments and bank transfers to exclude from personal spending.
+ * These are payment aggregations (debit from bank to credit card company),
+ * NOT individual merchant expenses. Including them would double-count spending.
+ */
+const CREDIT_CARD_PATTERNS: string[] = [
+  "ישראכרט",          // Isracard credit card payment
+  "מקס איט",          // Max IT Finance (Visa Max) payment
+  "ויזה מקס",         // Visa Max
+  "כרטיסי אשראי",    // Credit cards generic
+  "לאומי ויזה",       // Leumi Visa
+  "לאומי קארד",       // Leumi Card
+  "הרשאה מקס",        // Max standing order
+  "הרשאה דינרס",      // Diners standing order
+  "העברה באינטרנט",   // Internet bank transfer (rent etc.)
+  "העברה בינקאית",    // Bank wire transfer
+  "החזר שיק",         // Returned check
+];
+
+/** Returns true if this transaction is a credit card payment or bank transfer to exclude. */
+function isCreditCardOrTransfer(businessName: string): boolean {
+  return CREDIT_CARD_PATTERNS.some((p) => businessName.includes(p));
+}
 
 // ── Exported data types ───────────────────────
 
@@ -67,6 +92,7 @@ function groupByCategory(
 ): void {
   for (const tx of transactions) {
     if (tx.isIncome) continue;
+    if (isCreditCardOrTransfer(tx.businessName)) continue; // skip bulk CC payments
     const key = tx.expense || "(uncategorized)";
     const amount = Math.abs(tx.billingAmount ?? 0);
     const existing = groups.get(key);
@@ -221,7 +247,9 @@ async function _fetchTrends(profile: Profile, months: number): Promise<MonthTren
   return budgets.map((budget) => {
     const txs = budget.envelopes.flatMap((e) => e.actuals);
     const income = txs.filter((t) => t.isIncome).reduce((s, t) => s + (t.incomeAmount ?? 0), 0);
-    const expenses = txs.filter((t) => !t.isIncome).reduce((s, t) => s + Math.abs(t.billingAmount ?? 0), 0);
+    const expenses = txs
+      .filter((t) => !t.isIncome && !isCreditCardOrTransfer(t.businessName))
+      .reduce((s, t) => s + Math.abs(t.billingAmount ?? 0), 0);
     return { month: budget.budgetDate, income, expenses, net: income - expenses };
   });
 }
@@ -265,6 +293,21 @@ export async function fetchHouseholdTransactions(month?: string): Promise<Transa
     (a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime(),
   );
   return combined;
+}
+
+/**
+ * Fetch spending breakdown for Daniel's account for a given month.
+ * Credit card batch payments are excluded automatically via groupByCategory.
+ */
+export async function fetchDanielSpendingData(month?: string): Promise<SpendingGroup[]> {
+  const date = parseMonth(month);
+  const danielClient = await buildClient("daniel");
+  if (!danielClient) return [];
+  const result = await fetchBudgetTransactions(danielClient, date);
+  if (!result) return [];
+  const groups = new Map<string, SpendingGroup>();
+  groupByCategory(result.transactions, "daniel", groups);
+  return Array.from(groups.values()).sort((a, b) => b.total - a.total);
 }
 
 /**
@@ -365,6 +408,39 @@ export async function fetchInvestments(): Promise<InvestmentAccount[]> {
   ]);
 
   return accounts;
+}
+
+/**
+ * Fetch MUTUAL household expenses only: fixed rent + PayBox payments.
+ * This is the correct "household spending" — NOT personal bank transactions.
+ */
+export async function fetchHouseholdMutualExpenses(month?: string): Promise<SpendingGroup[]> {
+  const currentMonth = parseMonth(month);
+  const groups: SpendingGroup[] = [];
+
+  // Fixed: Rent (₪6,000/month, split 50/50 as placeholder)
+  groups.push({ name: "שכירות", total: 6000, count: 1, daniel: 3000, shelly: 3000 });
+
+  // Variable: PayBox payments logged this month
+  try {
+    const payboxData = await loadPaybox();
+    const monthPayments = payboxData.payments.filter((p) => p.date.startsWith(currentMonth));
+    const byCategory = new Map<string, SpendingGroup>();
+    for (const p of monthPayments) {
+      const cat = p.category || "כללי";
+      const cur = byCategory.get(cat) ?? { name: cat, total: 0, count: 0, daniel: 0, shelly: 0 };
+      cur.total += p.amount;
+      cur.count += 1;
+      if (p.logged_by === "daniel") cur.daniel += p.amount;
+      else if (p.logged_by === "shelly") cur.shelly += p.amount;
+      byCategory.set(cat, cur);
+    }
+    for (const g of byCategory.values()) groups.push(g);
+  } catch {
+    // PayBox unavailable — return just rent
+  }
+
+  return groups.sort((a, b) => b.total - a.total);
 }
 
 // ── CLI action functions ───────────────────────
